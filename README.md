@@ -51,34 +51,67 @@ ebay-oauth-google-app-script/
 2. 新しいプロジェクトを作成
 3. 上記のファイルをプロジェクトに追加
 
-#### 2.2. 設定値の設定
+#### 2.2. 環境の選択
+
+このライブラリは**Production環境**と**Sandbox環境**の両方に対応しています。
+
+**Production環境（本番）**
+- 実際のeBayデータにアクセス
+- 本格的なアプリケーション開発用
+
+**Sandbox環境（テスト）**
+- テストデータにアクセス
+- 開発・テスト用（推奨）
+
+#### 2.3. 設定値の設定
 
 設定は以下の2つの方法で行えます：
 
 **方法1: スクリプトプロパティに設定**
 
 ```javascript
-// スクリプトプロパティに設定
+// Production環境の場合
 PropertiesService.getScriptProperties().setProperties({
   'EBAY_CLIENT_ID': 'YOUR_ACTUAL_CLIENT_ID',
   'EBAY_CLIENT_SECRET': 'YOUR_ACTUAL_CLIENT_SECRET',
   'EBAY_REDIRECT_URI': 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
   'EBAY_SCOPE': 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment'
 });
+
+// Sandbox環境の場合
+PropertiesService.getScriptProperties().setProperties({
+  'EBAY_CLIENT_ID': 'YOUR_SANDBOX_CLIENT_ID',
+  'EBAY_CLIENT_SECRET': 'YOUR_SANDBOX_CLIENT_SECRET',
+  'EBAY_REDIRECT_URI': 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
+  'EBAY_SCOPE': 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment',
+  'EBAY_AUTH_URL': 'https://auth.sandbox.ebay.com/oauth2/authorize',
+  'EBAY_TOKEN_URL': 'https://api.sandbox.ebay.com/identity/v1/oauth2/token'
+});
 ```
 
 **方法2: 設定オブジェクトとして直接渡す**
 
 ```javascript
+// Production環境の場合
 const config = {
   clientId: 'YOUR_ACTUAL_CLIENT_ID',
   clientSecret: 'YOUR_ACTUAL_CLIENT_SECRET',
   redirectUri: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
   scope: 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment'
 };
+
+// Sandbox環境の場合
+const config = {
+  clientId: 'YOUR_SANDBOX_CLIENT_ID',
+  clientSecret: 'YOUR_SANDBOX_CLIENT_SECRET',
+  redirectUri: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
+  scope: 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment',
+  authUrl: 'https://auth.sandbox.ebay.com/oauth2/authorize',
+  tokenUrl: 'https://api.sandbox.ebay.com/identity/v1/oauth2/token'
+};
 ```
 
-#### 2.3. Webアプリケーションのデプロイ
+#### 2.4. Webアプリケーションのデプロイ
 
 1. `WebApp.gs`ファイルをプロジェクトに追加
 2. 「デプロイ」→「新しいデプロイ」を選択
@@ -90,6 +123,8 @@ const config = {
 ## 使用方法
 
 ### 基本的な認証
+
+#### Production環境の場合
 
 ```javascript
 // 設定オブジェクトを作成
@@ -110,6 +145,29 @@ if (success) {
 }
 ```
 
+#### Sandbox環境の場合
+
+```javascript
+// 設定オブジェクトを作成（Sandbox環境用）
+const config = {
+  clientId: 'YOUR_SANDBOX_CLIENT_ID',
+  clientSecret: 'YOUR_SANDBOX_CLIENT_SECRET',
+  redirectUri: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
+  scope: 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment',
+  authUrl: 'https://auth.sandbox.ebay.com/oauth2/authorize',
+  tokenUrl: 'https://api.sandbox.ebay.com/identity/v1/oauth2/token'
+};
+
+// 認証を実行
+const success = executeAuthorizationCodeFlow(config);
+
+if (success) {
+  console.log('Sandbox環境での認証成功！');
+} else {
+  console.error('Sandbox環境での認証失敗');
+}
+```
+
 ### 認証状態の確認
 
 ```javascript
@@ -127,6 +185,8 @@ if (isTokenValid()) {
 
 ### eBay APIリクエスト
 
+#### Production環境の場合
+
 ```javascript
 // 設定オブジェクト（リフレッシュ時に必要）
 const config = {
@@ -141,6 +201,29 @@ const headers = getApiHeaders(config);
 
 // eBay APIリクエスト
 const response = UrlFetchApp.fetch('https://api.ebay.com/sell/inventory/v1/inventory_item', {
+  method: 'GET',
+  headers: headers
+});
+```
+
+#### Sandbox環境の場合
+
+```javascript
+// 設定オブジェクト（Sandbox環境用）
+const config = {
+  clientId: 'YOUR_SANDBOX_CLIENT_ID',
+  clientSecret: 'YOUR_SANDBOX_CLIENT_SECRET',
+  redirectUri: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
+  scope: 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment',
+  authUrl: 'https://auth.sandbox.ebay.com/oauth2/authorize',
+  tokenUrl: 'https://api.sandbox.ebay.com/identity/v1/oauth2/token'
+};
+
+// APIヘッダーを取得
+const headers = getApiHeaders(config);
+
+// Sandbox環境のeBay APIリクエスト
+const response = UrlFetchApp.fetch('https://api.sandbox.ebay.com/sell/inventory/v1/inventory_item', {
   method: 'GET',
   headers: headers
 });
