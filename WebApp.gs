@@ -35,11 +35,11 @@ function doGet(e) {
       return createAuthPage(config);
     }
     
-    // 認証コードがある場合は認証を完了
-    const currentUrl = ScriptApp.getService().getUrl();
-    const redirectUrl = `${currentUrl}?code=${code}&state=${state || ''}`;
-    
-    const success = completeAuthFromRedirect(redirectUrl, config);
+         // 認証コードがある場合は認証を完了
+     const currentUrl = ScriptApp.getService().getUrl();
+     const redirectUrl = `${currentUrl}?code=${code}&state=${state || ''}`;
+     
+     const success = completeAuthFromRedirect(redirectUrl);
     
     if (success) {
       return createSuccessPage();
@@ -53,39 +53,7 @@ function doGet(e) {
   }
 }
 
-/**
- * スクリプトプロパティから設定オブジェクトを取得する関数
- * 
- * @return {Object|null} 設定オブジェクト
- */
-function getConfigFromProperties() {
-  try {
-    const scriptProperties = PropertiesService.getScriptProperties();
-    
-    const clientId = scriptProperties.getProperty('EBAY_CLIENT_ID');
-    const clientSecret = scriptProperties.getProperty('EBAY_CLIENT_SECRET');
-    const redirectUri = scriptProperties.getProperty('EBAY_REDIRECT_URI');
-    const scope = scriptProperties.getProperty('EBAY_SCOPE');
-    
-    if (!clientId || !clientSecret || !redirectUri || !scope) {
-      return null;
-    }
-    
-    return {
-      clientId: clientId,
-      clientSecret: clientSecret,
-      redirectUri: redirectUri,
-      scope: scope,
-      authUrl: scriptProperties.getProperty('EBAY_AUTH_URL') || 'https://auth.ebay.com/oauth2/authorize',
-      tokenUrl: scriptProperties.getProperty('EBAY_TOKEN_URL') || 'https://api.ebay.com/identity/v1/oauth2/token',
-      responseType: scriptProperties.getProperty('EBAY_RESPONSE_TYPE') || 'code'
-    };
-    
-  } catch (error) {
-    console.error('設定の取得でエラーが発生しました:', error);
-    return null;
-  }
-}
+// getConfigFromProperties関数はAuthorizationCodeFlow.jsで定義されています
 
 /**
  * 認証ページを作成する関数
@@ -94,7 +62,7 @@ function getConfigFromProperties() {
  * @return {HtmlOutput} 認証ページのHTML
  */
 function createAuthPage(config) {
-  const authUrl = getAuthUrl(config);
+  const authUrl = getAuthUrl();
   
   const html = `
     <!DOCTYPE html>

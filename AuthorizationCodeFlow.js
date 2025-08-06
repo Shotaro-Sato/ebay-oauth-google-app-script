@@ -6,51 +6,86 @@
  */
 
 /**
+ * スクリプトプロパティから設定を取得する関数
+ * 
+ * @return {Object|null} 設定オブジェクト
+ */
+function getConfigFromProperties() {
+  try {
+    const scriptProperties = PropertiesService.getScriptProperties();
+    
+    const clientId = scriptProperties.getProperty('EBAY_CLIENT_ID');
+    const clientSecret = scriptProperties.getProperty('EBAY_CLIENT_SECRET');
+    const redirectUri = scriptProperties.getProperty('EBAY_REDIRECT_URI');
+    const scope = scriptProperties.getProperty('EBAY_SCOPE');
+    
+    if (!clientId || !clientSecret || !redirectUri || !scope) {
+      return null;
+    }
+    
+    return {
+      clientId: clientId,
+      clientSecret: clientSecret,
+      redirectUri: redirectUri,
+      scope: scope,
+      authUrl: scriptProperties.getProperty('EBAY_AUTH_URL') || 'https://auth.ebay.com/oauth2/authorize',
+      tokenUrl: scriptProperties.getProperty('EBAY_TOKEN_URL') || 'https://api.ebay.com/identity/v1/oauth2/token',
+      responseType: scriptProperties.getProperty('EBAY_RESPONSE_TYPE') || 'code'
+    };
+    
+  } catch (error) {
+    console.error('設定の取得でエラーが発生しました:', error);
+    return null;
+  }
+}
+
+/**
  * 認証用URLを作成する関数
  * 
- * @param {Object} config - 設定オブジェクト
- * @param {string} config.clientId - クライアントID
- * @param {string} config.clientSecret - クライアントシークレット
- * @param {string} config.redirectUri - リダイレクトURI
- * @param {string} config.scope - スコープ
- * @param {string} config.authUrl - 認証URL（デフォルト: https://auth.ebay.com/oauth2/authorize）
- * @param {string} config.responseType - レスポンスタイプ（デフォルト: code）
- * @param {string} config.state - 状態パラメータ（オプション、自動生成される）
- * @return {string} 認証URL
+ * @return {string|null} 認証URL
  */
-function createAuthUrl(config) {
-  // 引数がオブジェクトでない場合はエラー
-  if (typeof config !== 'object') {
-    throw new Error('引数はオブジェクトである必要があります');
+function createAuthUrl() {
+  try {
+    // スクリプトプロパティから設定を取得
+    const config = getConfigFromProperties();
+    
+    if (!config) {
+      console.error('スクリプトプロパティに必要な設定が不足しています');
+      return null;
+    }
+    
+    // 必須パラメータの検証
+    if (!config.clientId || !config.redirectUri || !config.scope) {
+      throw new Error('必須パラメータ（clientId、redirectUri、scope）が不足しています');
+    }
+    
+    // デフォルト値を設定
+    const clientId = config.clientId;
+    const redirectUri = config.redirectUri;
+    const scope = config.scope;
+    const state = generateRandomState();
+    const responseType = config.responseType || 'code';
+    const authUrl = config.authUrl || 'https://auth.ebay.com/oauth2/authorize';
+    
+    // URLパラメータを構築
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: scope,
+      response_type: responseType,
+      state: state
+    });
+    
+    // 認証URLを生成
+    const authUrlWithParams = `${authUrl}?${params.toString()}`;
+    
+    console.log('認証URLが作成されました:', authUrlWithParams);
+    return authUrlWithParams;
+    
+  } catch (error) {
+    console.error('認証URLの作成でエラーが発生しました:', error);
+    return null;
   }
-  
-  // 必須パラメータの検証
-  if (!config.clientId || !config.redirectUri || !config.scope) {
-    throw new Error('必須パラメータ（clientId、redirectUri、scope）が不足しています');
-  }
-  
-  // デフォルト値を設定
-  const clientId = config.clientId;
-  const redirectUri = config.redirectUri;
-  const scope = config.scope;
-  const state = config.state || generateRandomState();
-  const responseType = config.responseType || 'code';
-  const authUrl = config.authUrl || 'https://auth.ebay.com/oauth2/authorize';
-  
-  // URLパラメータを構築
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    scope: scope,
-    response_type: responseType,
-    state: state
-  });
-  
-  // 認証URLを生成
-  const authUrlWithParams = `${authUrl}?${params.toString()}`;
-  
-  console.log('認証URLが作成されました:', authUrlWithParams);
-  return authUrlWithParams;
 }
 
 /**
@@ -67,16 +102,23 @@ function generateRandomState() {
  * 認証URLにアクセスしてトークンをスクリプトプロパティに保存する関数
  * 
  * @param {string} authUrl - 認証URL
- * @param {Object} config - 設定オブジェクト
  * @return {boolean} 成功/失敗
  */
-function authenticateWithUrl(authUrl, config) {
-  // URLがeBay OAuth用のURLでない場合はエラー
-  if (!authUrl || !authUrl.includes('auth.ebay.com/oauth2/authorize')) {
-    throw new Error('無効なeBay OAuth認証URLです');
-  }
-  
+function authenticateWithUrl(authUrl) {
   try {
+    // スクリプトプロパティから設定を取得
+    const config = getConfigFromProperties();
+    
+    if (!config) {
+      console.error('スクリプトプロパティに必要な設定が不足しています');
+      return false;
+    }
+    
+    // URLがeBay OAuth用のURLでない場合はエラー
+    if (!authUrl || !authUrl.includes('auth.ebay.com/oauth2/authorize')) {
+      throw new Error('無効なeBay OAuth認証URLです');
+    }
+    
     // 認証URLにアクセスして認証コードを取得
     const response = UrlFetchApp.fetch(authUrl, {
       method: 'GET',
@@ -95,12 +137,12 @@ function authenticateWithUrl(authUrl, config) {
           PropertiesService.getScriptProperties().setProperty('EBAY_AUTH_CODE', authCode);
           
           // アクセストークンを取得
-          return exchangeCodeForToken(authCode, config);
+          return exchangeCodeForToken(authCode);
         }
       }
     }
     
-    console.error('認証URLからのレスポンスが予期しない形式です');
+    console.error('認証URLへのアクセスでエラーが発生しました');
     return false;
     
   } catch (error) {
@@ -117,9 +159,8 @@ function authenticateWithUrl(authUrl, config) {
  */
 function extractAuthCodeFromUrl(url) {
   try {
-    const urlObj = new URL(url);
-    const code = urlObj.searchParams.get('code');
-    return code;
+    const urlParams = new URLSearchParams(url.split('?')[1]);
+    return urlParams.get('code');
   } catch (error) {
     console.error('URLからの認証コード抽出でエラーが発生しました:', error);
     return null;
@@ -130,53 +171,64 @@ function extractAuthCodeFromUrl(url) {
  * 認証コードをアクセストークンと交換する関数
  * 
  * @param {string} authCode - 認証コード
- * @param {Object} config - 設定オブジェクト
  * @return {boolean} 成功/失敗
  */
-function exchangeCodeForToken(authCode, config) {
+function exchangeCodeForToken(authCode) {
   try {
+    // スクリプトプロパティから設定を取得
+    const config = getConfigFromProperties();
+    
+    if (!config) {
+      console.error('スクリプトプロパティに必要な設定が不足しています');
+      return false;
+    }
+    
     const clientId = config.clientId;
     const clientSecret = config.clientSecret;
     const redirectUri = config.redirectUri;
     const tokenUrl = config.tokenUrl || 'https://api.ebay.com/identity/v1/oauth2/token';
     
-    // トークンリクエストのパラメータ
-    const payload = {
+    // Basic認証用のヘッダーを作成
+    const credentials = Utilities.base64Encode(`${clientId}:${clientSecret}`);
+    
+    // リクエストボディを作成
+    const requestBody = new URLSearchParams({
       grant_type: 'authorization_code',
       code: authCode,
       redirect_uri: redirectUri
-    };
+    });
     
-    // Basic認証のヘッダーを作成
-    const credentials = Utilities.base64Encode(`${clientId}:${clientSecret}`);
-    
+    // トークンエンドポイントにリクエスト
     const response = UrlFetchApp.fetch(tokenUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${credentials}`
       },
-      payload: new URLSearchParams(payload).toString()
+      payload: requestBody.toString()
     });
     
     const responseCode = response.getResponseCode();
-    const responseBody = response.getContentText();
+    const responseText = response.getContentText();
     
     if (responseCode === 200) {
-      const tokenData = JSON.parse(responseBody);
+      const tokenData = JSON.parse(responseText);
       
       // トークンをスクリプトプロパティに保存
-      PropertiesService.getScriptProperties().setProperty('EBAY_ACCESS_TOKEN', tokenData.access_token);
-      PropertiesService.getScriptProperties().setProperty('EBAY_REFRESH_TOKEN', tokenData.refresh_token);
+      const scriptProperties = PropertiesService.getScriptProperties();
+      scriptProperties.setProperty('EBAY_ACCESS_TOKEN', tokenData.access_token);
+      scriptProperties.setProperty('EBAY_REFRESH_TOKEN', tokenData.refresh_token);
       
-      // トークンの有効期限を計算して保存
-      const expiresAt = new Date().getTime() + (tokenData.expires_in * 1000);
-      PropertiesService.getScriptProperties().setProperty('EBAY_TOKEN_EXPIRES_AT', expiresAt.toString());
+      // 有効期限を計算して保存
+      const expiresIn = tokenData.expires_in || 7200; // デフォルト2時間
+      const expiresAt = new Date().getTime() + (expiresIn * 1000);
+      scriptProperties.setProperty('EBAY_TOKEN_EXPIRES_AT', expiresAt.toString());
       
-      console.log('トークンの取得と保存が完了しました');
+      console.log('アクセストークンの取得が完了しました');
       return true;
+      
     } else {
-      console.error('トークン取得でエラーが発生しました:', responseCode, responseBody);
+      console.error('トークン取得でエラーが発生しました:', responseCode, responseText);
       return false;
     }
     
@@ -189,14 +241,15 @@ function exchangeCodeForToken(authCode, config) {
 /**
  * リフレッシュトークンを使用してアクセストークンを更新する関数
  * 
- * @param {Object} config - 設定オブジェクト
  * @return {boolean} 成功/失敗
  */
-function refreshAccessToken(config) {
+function refreshAccessToken() {
   try {
-    const refreshToken = PropertiesService.getScriptProperties().getProperty('EBAY_REFRESH_TOKEN');
-    if (!refreshToken) {
-      console.error('リフレッシュトークンが保存されていません');
+    // スクリプトプロパティから設定を取得
+    const config = getConfigFromProperties();
+    
+    if (!config) {
+      console.error('スクリプトプロパティに必要な設定が不足しています');
       return false;
     }
     
@@ -204,46 +257,57 @@ function refreshAccessToken(config) {
     const clientSecret = config.clientSecret;
     const tokenUrl = config.tokenUrl || 'https://api.ebay.com/identity/v1/oauth2/token';
     
-    // リフレッシュトークンリクエストのパラメータ
-    const payload = {
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken
-    };
+    // リフレッシュトークンを取得
+    const refreshToken = PropertiesService.getScriptProperties().getProperty('EBAY_REFRESH_TOKEN');
+    if (!refreshToken) {
+      console.error('リフレッシュトークンが存在しません');
+      return false;
+    }
     
-    // Basic認証のヘッダーを作成
+    // Basic認証用のヘッダーを作成
     const credentials = Utilities.base64Encode(`${clientId}:${clientSecret}`);
     
+    // リクエストボディを作成
+    const requestBody = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken
+    });
+    
+    // トークンエンドポイントにリクエスト
     const response = UrlFetchApp.fetch(tokenUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${credentials}`
       },
-      payload: new URLSearchParams(payload).toString()
+      payload: requestBody.toString()
     });
     
     const responseCode = response.getResponseCode();
-    const responseBody = response.getContentText();
+    const responseText = response.getContentText();
     
     if (responseCode === 200) {
-      const tokenData = JSON.parse(responseBody);
+      const tokenData = JSON.parse(responseText);
       
-      // 新しいトークンをスクリプトプロパティに保存
-      PropertiesService.getScriptProperties().setProperty('EBAY_ACCESS_TOKEN', tokenData.access_token);
+      // トークンをスクリプトプロパティに保存
+      const scriptProperties = PropertiesService.getScriptProperties();
+      scriptProperties.setProperty('EBAY_ACCESS_TOKEN', tokenData.access_token);
       
       // 新しいリフレッシュトークンがある場合は保存
       if (tokenData.refresh_token) {
-        PropertiesService.getScriptProperties().setProperty('EBAY_REFRESH_TOKEN', tokenData.refresh_token);
+        scriptProperties.setProperty('EBAY_REFRESH_TOKEN', tokenData.refresh_token);
       }
       
-      // トークンの有効期限を更新
-      const expiresAt = new Date().getTime() + (tokenData.expires_in * 1000);
-      PropertiesService.getScriptProperties().setProperty('EBAY_TOKEN_EXPIRES_AT', expiresAt.toString());
+      // 有効期限を計算して保存
+      const expiresIn = tokenData.expires_in || 7200; // デフォルト2時間
+      const expiresAt = new Date().getTime() + (expiresIn * 1000);
+      scriptProperties.setProperty('EBAY_TOKEN_EXPIRES_AT', expiresAt.toString());
       
       console.log('アクセストークンの更新が完了しました');
       return true;
+      
     } else {
-      console.error('トークン更新でエラーが発生しました:', responseCode, responseBody);
+      console.error('トークン更新でエラーが発生しました:', responseCode, responseText);
       return false;
     }
     
@@ -254,7 +318,7 @@ function refreshAccessToken(config) {
 }
 
 /**
- * 現在のアクセストークンが有効かどうかをチェックする関数
+ * トークンが有効かどうかを確認する関数
  * 
  * @return {boolean} トークンが有効かどうか
  */
@@ -277,10 +341,9 @@ function isTokenValid() {
  * リダイレクトURLからリフレッシュトークンを取得する関数
  * 
  * @param {string} redirectUrl - eBayからリダイレクトされたURL
- * @param {Object} config - 設定オブジェクト
  * @return {string|null} リフレッシュトークン
  */
-function getRefreshTokenFromRedirectUrl(redirectUrl, config) {
+function getRefreshTokenFromRedirectUrl(redirectUrl) {
   try {
     const authCode = extractAuthCodeFromUrl(redirectUrl);
     if (!authCode) {
@@ -292,7 +355,7 @@ function getRefreshTokenFromRedirectUrl(redirectUrl, config) {
     PropertiesService.getScriptProperties().setProperty('EBAY_AUTH_CODE', authCode);
     
     // アクセストークンを取得
-    const success = exchangeCodeForToken(authCode, config);
+    const success = exchangeCodeForToken(authCode);
     if (success) {
       return PropertiesService.getScriptProperties().getProperty('EBAY_REFRESH_TOKEN');
     }
@@ -308,25 +371,17 @@ function getRefreshTokenFromRedirectUrl(redirectUrl, config) {
 /**
  * 認証グラントフローを実行する関数
  * 
- * @param {Object} config - 設定オブジェクト
- * @param {string} config.clientId - クライアントID
- * @param {string} config.clientSecret - クライアントシークレット
- * @param {string} config.redirectUri - リダイレクトURI
- * @param {string} config.scope - スコープ
- * @param {string} config.authUrl - 認証URL（デフォルト: https://auth.ebay.com/oauth2/authorize）
- * @param {string} config.tokenUrl - トークンURL（デフォルト: https://api.ebay.com/identity/v1/oauth2/token）
- * @param {string} config.responseType - レスポンスタイプ（デフォルト: code）
  * @return {boolean} 成功/失敗
  */
-function executeAuthorizationCodeFlow(config) {
+function executeAuthorizationCodeFlow() {
   try {
-    // 設定の検証
-    if (!config || typeof config !== 'object') {
-      throw new Error('設定オブジェクトが必要です');
-    }
+    // スクリプトプロパティから設定を取得
+    const config = getConfigFromProperties();
     
-    if (!config.clientId || !config.clientSecret || !config.redirectUri || !config.scope) {
-      throw new Error('必須パラメータ（clientId、clientSecret、redirectUri、scope）が不足しています');
+    if (!config) {
+      console.error('スクリプトプロパティに必要な設定が不足しています');
+      console.error('必要な設定: EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, EBAY_REDIRECT_URI, EBAY_SCOPE');
+      return false;
     }
     
     // 既に有効なトークンがある場合は何もしない
@@ -339,19 +394,129 @@ function executeAuthorizationCodeFlow(config) {
     const refreshToken = PropertiesService.getScriptProperties().getProperty('EBAY_REFRESH_TOKEN');
     if (refreshToken) {
       console.log('リフレッシュトークンを使用してトークンを更新します');
-      if (refreshAccessToken(config)) {
+      if (refreshAccessToken()) {
         return true;
       }
     }
     
     // 認証URLを作成
-    const authUrl = createAuthUrl(config);
+    const authUrl = createAuthUrl();
+    if (!authUrl) {
+      console.error('認証URLの作成に失敗しました');
+      return false;
+    }
     
     // 認証URLにアクセスしてトークンを取得
-    return authenticateWithUrl(authUrl, config);
+    return authenticateWithUrl(authUrl);
     
   } catch (error) {
     console.error('認証グラントフローの実行でエラーが発生しました:', error);
     return false;
+  }
+} 
+
+/**
+ * スクリプトプロパティのみで認証URLを取得する関数（メニュー用）
+ * 
+ * @return {string|null} 認証URL
+ */
+function getAuthUrlFromProperties() {
+  try {
+    // スクリプトプロパティから設定を取得
+    const config = getConfigFromProperties();
+    
+    if (!config) {
+      console.error('スクリプトプロパティに必要な設定が不足しています');
+      return null;
+    }
+    
+    // 認証URLを取得
+    return createAuthUrl();
+    
+  } catch (error) {
+    console.error('認証URLの取得でエラーが発生しました:', error);
+    return null;
+  }
+}
+
+/**
+ * スクリプトプロパティのみでリダイレクトURLから認証を完了する関数（メニュー用）
+ * 
+ * @param {string} redirectUrl - eBayからリダイレクトされたURL
+ * @return {boolean} 成功/失敗
+ */
+function completeAuthFromRedirectWithProperties(redirectUrl) {
+  try {
+    // スクリプトプロパティから設定を取得
+    const config = getConfigFromProperties();
+    
+    if (!config) {
+      console.error('スクリプトプロパティに必要な設定が不足しています');
+      return false;
+    }
+    
+    // リダイレクトURLから認証を完了
+    return getRefreshTokenFromRedirectUrl(redirectUrl);
+    
+  } catch (error) {
+    console.error('リダイレクトURLからの認証完了でエラーが発生しました:', error);
+    return false;
+  }
+}
+
+/**
+ * スクリプトプロパティのみでアクセストークンを取得する関数（メニュー用）
+ * 
+ * @return {string|null} アクセストークン
+ */
+function getAccessTokenFromProperties() {
+  try {
+    // スクリプトプロパティから設定を取得
+    const config = getConfigFromProperties();
+    
+    if (!config) {
+      console.error('スクリプトプロパティに必要な設定が不足しています');
+      return null;
+    }
+    
+    // アクセストークンを取得
+    return PropertiesService.getScriptProperties().getProperty('EBAY_ACCESS_TOKEN');
+    
+  } catch (error) {
+    console.error('アクセストークンの取得でエラーが発生しました:', error);
+    return null;
+  }
+}
+
+/**
+ * スクリプトプロパティのみでAPIヘッダーを取得する関数（メニュー用）
+ * 
+ * @return {Object|null} APIリクエスト用のヘッダー
+ */
+function getApiHeadersFromProperties() {
+  try {
+    // スクリプトプロパティから設定を取得
+    const config = getConfigFromProperties();
+    
+    if (!config) {
+      console.error('スクリプトプロパティに必要な設定が不足しています');
+      return null;
+    }
+    
+    // APIヘッダーを取得
+    const accessToken = PropertiesService.getScriptProperties().getProperty('EBAY_ACCESS_TOKEN');
+    if (!accessToken) {
+      console.error('アクセストークンが保存されていません');
+      return null;
+    }
+
+    return {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    };
+    
+  } catch (error) {
+    console.error('APIヘッダーの取得でエラーが発生しました:', error);
+    return null;
   }
 } 

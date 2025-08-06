@@ -65,9 +65,7 @@ ebay-oauth-google-app-script/
 
 #### 2.3. 設定値の設定
 
-設定は以下の2つの方法で行えます：
-
-**方法1: スクリプトプロパティに設定**
+スクリプトプロパティに設定を行います：
 
 ```javascript
 // Production環境の場合
@@ -89,28 +87,6 @@ PropertiesService.getScriptProperties().setProperties({
 });
 ```
 
-**方法2: 設定オブジェクトとして直接渡す**
-
-```javascript
-// Production環境の場合
-const config = {
-  clientId: 'YOUR_ACTUAL_CLIENT_ID',
-  clientSecret: 'YOUR_ACTUAL_CLIENT_SECRET',
-  redirectUri: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
-  scope: 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment'
-};
-
-// Sandbox環境の場合
-const config = {
-  clientId: 'YOUR_SANDBOX_CLIENT_ID',
-  clientSecret: 'YOUR_SANDBOX_CLIENT_SECRET',
-  redirectUri: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
-  scope: 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment',
-  authUrl: 'https://auth.sandbox.ebay.com/oauth2/authorize',
-  tokenUrl: 'https://api.sandbox.ebay.com/identity/v1/oauth2/token'
-};
-```
-
 #### 2.4. Webアプリケーションのデプロイ
 
 1. `WebApp.gs`ファイルをプロジェクトに追加
@@ -124,47 +100,14 @@ const config = {
 
 ### 基本的な認証
 
-#### Production環境の場合
-
 ```javascript
-// 設定オブジェクトを作成
-const config = {
-  clientId: 'YOUR_CLIENT_ID',
-  clientSecret: 'YOUR_CLIENT_SECRET',
-  redirectUri: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
-  scope: 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment'
-};
-
-// 認証を実行
-const success = executeAuthorizationCodeFlow(config);
+// スクリプトプロパティに設定が保存されていることを前提
+const success = executeAuthorizationCodeFlow();
 
 if (success) {
   console.log('認証成功！');
 } else {
   console.error('認証失敗');
-}
-```
-
-#### Sandbox環境の場合
-
-```javascript
-// 設定オブジェクトを作成（Sandbox環境用）
-const config = {
-  clientId: 'YOUR_SANDBOX_CLIENT_ID',
-  clientSecret: 'YOUR_SANDBOX_CLIENT_SECRET',
-  redirectUri: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
-  scope: 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment',
-  authUrl: 'https://auth.sandbox.ebay.com/oauth2/authorize',
-  tokenUrl: 'https://api.sandbox.ebay.com/identity/v1/oauth2/token'
-};
-
-// 認証を実行
-const success = executeAuthorizationCodeFlow(config);
-
-if (success) {
-  console.log('Sandbox環境での認証成功！');
-} else {
-  console.error('Sandbox環境での認証失敗');
 }
 ```
 
@@ -185,19 +128,9 @@ if (isTokenValid()) {
 
 ### eBay APIリクエスト
 
-#### Production環境の場合
-
 ```javascript
-// 設定オブジェクト（リフレッシュ時に必要）
-const config = {
-  clientId: 'YOUR_CLIENT_ID',
-  clientSecret: 'YOUR_CLIENT_SECRET',
-  redirectUri: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
-  scope: 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment'
-};
-
 // APIヘッダーを取得
-const headers = getApiHeaders(config);
+const headers = getApiHeaders();
 
 // eBay APIリクエスト
 const response = UrlFetchApp.fetch('https://api.ebay.com/sell/inventory/v1/inventory_item', {
@@ -206,80 +139,40 @@ const response = UrlFetchApp.fetch('https://api.ebay.com/sell/inventory/v1/inven
 });
 ```
 
-#### Sandbox環境の場合
-
-```javascript
-// 設定オブジェクト（Sandbox環境用）
-const config = {
-  clientId: 'YOUR_SANDBOX_CLIENT_ID',
-  clientSecret: 'YOUR_SANDBOX_CLIENT_SECRET',
-  redirectUri: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
-  scope: 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment',
-  authUrl: 'https://auth.sandbox.ebay.com/oauth2/authorize',
-  tokenUrl: 'https://api.sandbox.ebay.com/identity/v1/oauth2/token'
-};
-
-// APIヘッダーを取得
-const headers = getApiHeaders(config);
-
-// Sandbox環境のeBay APIリクエスト
-const response = UrlFetchApp.fetch('https://api.sandbox.ebay.com/sell/inventory/v1/inventory_item', {
-  method: 'GET',
-  headers: headers
-});
-```
-
 ### 認証URLの取得（手動認証用）
 
 ```javascript
-// 設定オブジェクトを作成
-const config = {
-  clientId: 'YOUR_CLIENT_ID',
-  clientSecret: 'YOUR_CLIENT_SECRET',
-  redirectUri: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
-  scope: 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment'
-};
-
 // 認証URLを取得
-const authUrl = getAuthUrl(config);
+const authUrl = getAuthUrl();
 console.log('認証URL:', authUrl);
 ```
 
 ### リダイレクトURLからの認証完了
 
 ```javascript
-// 設定オブジェクトを作成
-const config = {
-  clientId: 'YOUR_CLIENT_ID',
-  clientSecret: 'YOUR_CLIENT_SECRET',
-  redirectUri: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
-  scope: 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment'
-};
-
 // リダイレクトURLから認証を完了
-const success = completeAuthFromRedirect(redirectUrl, config);
+const success = completeAuthFromRedirect(redirectUrl);
 ```
+
+
 
 ## 主要な関数
 
 ### 認証関連
-
-- `executeAuthorizationCodeFlow(config)` - 認証グラントフロー実行
+- `executeAuthorizationCodeFlow()` - 認証グラントフロー実行
 - `getAuthStatus()` - 認証状態の取得
 - `isTokenValid()` - トークンの有効性確認
-- `getAccessToken(config)` - アクセストークンの取得
-- `refreshAccessToken(config)` - トークンの更新
+- `getAccessToken()` - アクセストークンの取得
+- `refreshAccessToken()` - トークンの更新
 - `clearAuthData()` - 認証データのクリア
 
 ### URL関連
-
-- `getAuthUrl(config)` - 認証URLの取得
-- `createAuthUrl(config)` - 認証URLの作成
-- `completeAuthFromRedirect(redirectUrl, config)` - リダイレクトURLからの認証完了
+- `getAuthUrl()` - 認証URLの取得
+- `createAuthUrl()` - 認証URLの作成
+- `completeAuthFromRedirect(redirectUrl)` - リダイレクトURLからの認証完了
 
 ### API関連
-
-- `getApiHeaders(config)` - APIリクエスト用ヘッダーの取得
+- `getApiHeaders()` - APIリクエスト用ヘッダーの取得
 
 ## サンプルコード
 
@@ -289,20 +182,12 @@ const success = completeAuthFromRedirect(redirectUrl, config);
 
 ```javascript
 function example() {
-  // 設定オブジェクトを作成
-  const config = {
-    clientId: 'YOUR_CLIENT_ID',
-    clientSecret: 'YOUR_CLIENT_SECRET',
-    redirectUri: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
-    scope: 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.marketing https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/sell.fulfillment'
-  };
-  
   // 認証を実行
-  const success = executeAuthorizationCodeFlow(config);
+  const success = executeAuthorizationCodeFlow();
   
   if (success) {
     // 認証成功時の処理
-    const headers = getApiHeaders(config);
+    const headers = getApiHeaders();
     
     // eBay APIリクエスト
     const response = UrlFetchApp.fetch('https://api.ebay.com/sell/inventory/v1/inventory_item', {
@@ -363,6 +248,48 @@ runAllTests();
 - アクセストークンは自動的に更新されます
 - 必要に応じて`clearAuthData()`で認証データをクリアできます
 
+## テスト
+
+このライブラリには単体テストが含まれています。
+
+### テストの実行方法
+
+1. **QUnitライブラリの追加**
+   - Google Apps Scriptエディタで「ライブラリ」をクリック
+   - ライブラリID: `1cNjlD4uLVcIGK6WvGbRvA9w34eAFdmKbw7sD-qwN8m6QxqX5bJymx1xL` を追加
+
+2. **テストファイルの追加**
+   - `Tests.gs`ファイルをプロジェクトに追加
+
+3. **テストの実行**
+   ```javascript
+   // すべてのテストを実行
+   runSimpleTests();
+   
+   // 特定のテストを実行
+   runSpecificTest('config');      // 設定関連テスト
+   runSpecificTest('authUrl');     // 認証URL関連テスト
+   runSpecificTest('authStatus');  // 認証状態関連テスト
+   runSpecificTest('token');       // トークン関連テスト
+   runSpecificTest('api');         // API関連テスト
+   runSpecificTest('integration'); // 統合テスト
+   runSpecificTest('mock');        // モック関数テスト
+   runSpecificTest('error');       // エラーハンドリングテスト
+   runSpecificTest('performance'); // パフォーマンステスト
+   ```
+
+### テスト内容
+
+- **設定関連テスト**: `getConfigFromProperties()`の動作確認
+- **認証URL関連テスト**: `createAuthUrl()`、`getAuthUrl()`の動作確認
+- **認証状態関連テスト**: `getAuthStatus()`、`isTokenValid()`の動作確認
+- **トークン関連テスト**: `getAccessToken()`、`refreshAccessToken()`の動作確認
+- **API関連テスト**: `getApiHeaders()`の動作確認
+- **統合テスト**: 複数関数の連携動作確認
+- **モック関数テスト**: ユーティリティ関数の動作確認
+- **エラーハンドリングテスト**: エラーケースの処理確認
+- **パフォーマンステスト**: 実行時間の確認
+
 ## ライセンス
 
 このプロジェクトはMITライセンスの下で公開されています。
@@ -373,6 +300,15 @@ runAllTests();
 
 ## 更新履歴
 
+- v4.0.0 - セキュリティ強化
+  - 設定オブジェクト方式を削除し、スクリプトプロパティ方式のみに統一
+  - 認証情報をコードに記載する必要がなくなり、セキュリティが向上
+  - メニューからの使用がより簡単に
+- v3.0.0 - メニュー対応
+  - スクリプトプロパティのみで動作する関数を追加
+  - スプレッドシートなどのメニューから使用可能
+  - `executeAuthorizationCodeFlowFromProperties()`等のメニュー用関数を追加
+  - 設定オブジェクト方式とスクリプトプロパティ方式の両方をサポート
 - v2.0.0 - 設定オブジェクト対応
   - `eBayOAuth.js`ファイルを削除
   - 設定オブジェクトを引数として渡す方式に変更

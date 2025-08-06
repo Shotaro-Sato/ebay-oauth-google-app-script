@@ -6,13 +6,6 @@
  */
 
 /**
- * eBay OAuth2 認証メイン関数
- * 
- * このファイルにはeBay API OAuth2認証のメイン関数が含まれています。
- * 認証関数を実行するだけで認証された状態を作るためのエントリーポイントです。
- */
-
-/**
  * 現在の認証状態を確認する関数
  * 
  * @return {Object} 認証状態の情報
@@ -64,31 +57,35 @@ function clearAuthData() {
 /**
  * 認証URLを取得する関数（手動認証用）
  * 
- * @param {Object} config - 設定オブジェクト
- * @return {string} 認証URL
+ * @return {string|null} 認証URL
  */
-function getAuthUrl(config) {
-  if (!config || typeof config !== 'object') {
-    throw new Error('設定オブジェクトが必要です');
+function getAuthUrl() {
+  try {
+    // スクリプトプロパティから設定を取得
+    const config = getConfigFromProperties();
+    
+    if (!config) {
+      console.error('スクリプトプロパティに必要な設定が不足しています');
+      return null;
+    }
+    
+    return createAuthUrl();
+    
+  } catch (error) {
+    console.error('認証URLの取得でエラーが発生しました:', error);
+    return null;
   }
-  
-  if (!config.clientId || !config.redirectUri || !config.scope) {
-    throw new Error('必須パラメータ（clientId、redirectUri、scope）が不足しています');
-  }
-  
-  return createAuthUrl(config);
 }
 
 /**
  * リダイレクトURLから認証を完了する関数（Webアプリ用）
  * 
  * @param {string} redirectUrl - eBayからリダイレクトされたURL
- * @param {Object} config - 設定オブジェクト
  * @return {boolean} 成功/失敗
  */
-function completeAuthFromRedirect(redirectUrl, config) {
+function completeAuthFromRedirect(redirectUrl) {
   try {
-    const refreshToken = getRefreshTokenFromRedirectUrl(redirectUrl, config);
+    const refreshToken = getRefreshTokenFromRedirectUrl(redirectUrl);
     if (refreshToken) {
       console.log('リダイレクトURLからの認証が完了しました。');
       return true;
@@ -105,15 +102,14 @@ function completeAuthFromRedirect(redirectUrl, config) {
 /**
  * アクセストークンを取得する関数
  * 
- * @param {Object} config - 設定オブジェクト（リフレッシュ時に必要）
  * @return {string|null} アクセストークン
  */
-function getAccessToken(config = null) {
+function getAccessToken() {
   if (isTokenValid()) {
     return PropertiesService.getScriptProperties().getProperty('EBAY_ACCESS_TOKEN');
   } else {
     // トークンが無効な場合は更新を試行
-    if (config && refreshAccessToken(config)) {
+    if (refreshAccessToken()) {
       return PropertiesService.getScriptProperties().getProperty('EBAY_ACCESS_TOKEN');
     }
     return null;
@@ -123,11 +119,10 @@ function getAccessToken(config = null) {
 /**
  * eBay APIリクエスト用のヘッダーを取得する関数
  * 
- * @param {Object} config - 設定オブジェクト（リフレッシュ時に必要）
  * @return {Object} APIリクエスト用のヘッダー
  */
-function getApiHeaders(config = null) {
-  const accessToken = getAccessToken(config);
+function getApiHeaders() {
+  const accessToken = getAccessToken();
   if (!accessToken) {
     throw new Error('有効なアクセストークンがありません。認証を実行してください。');
   }
